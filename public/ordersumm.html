@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Order Confirmation</title>
+  <link href="https://fonts.googleapis.com/css2?family=Great+Vibes&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="order.css" />
+  <script src="auth.js"></script>
+  <script>
+    window.onload = function() {
+      if (typeof initAuthUI === 'function') initAuthUI();
+      // Check login state and show login required popup if not logged in
+      if (!checkUserLoggedIn()) {
+        document.getElementById('authAlert').style.display = 'flex';
+        return;
+      }
+    }
+  </script>
+</head>
+<body>
+  <header>
+    <div class="header-title">ARS Gallery</div>
+    <div class="header-actions">
+      <button onclick="showLoginModal()" id="loginBtn">Login</button>
+      <button onclick="showSignupModal()" id="signupBtn">Sign Up</button>
+      <button id="logoutBtn" style="display:none;">Logout</button>
+      <div id="profileLink" style="display:none; margin-left: 10px;">
+        <a href="/profile.html" style="font-weight: bold;">👤</a>
+      </div>
+      <div id="userDisplay" style="display: none; margin-left: 10px; color: gold; font-weight: bold;"></div>
+      <div class="cart-icon" onclick="window.location.href='/cart.html'">
+        🛒 <span id="cart-count">0</span>
+        <a id="adminPanelLink" href="/admin.html" style="display: none; margin-left: 15px; color: gold; font-weight: bold;">Admin Panel</a>
+      </div>
+    </div>
+  </header>
+  <hr class="header-divider"/>
+
+  <!-- Modals (Login/Signup/Alert) -->
+  <div id="signupModal" class="modal">
+    <div class="modal-content">
+      <span class="close" onclick="closeModal('signupModal')">&times;</span>
+      <h2>Sign Up</h2>
+      <form id="signupForm">
+        <input type="text" name="username" placeholder="Username" required />
+        <input type="email" name="email" placeholder="Email" required />
+        <input type="password" name="password" placeholder="Password" required />
+        <button type="submit">Sign Up</button>
+        <div id="signupError" class="error-message" style="display:none;"></div>
+        <div id="signupSuccess" class="success-message" style="display:none;"></div>
+      </form>
+    </div>
+  </div>
+  <div id="loginModal" class="modal">
+    <div class="modal-content">
+      <span class="close" onclick="closeModal('loginModal')">&times;</span>
+      <h2>Login</h2>
+      <form id="loginForm">
+        <input type="text" name="username" placeholder="Username" required />
+        <input type="password" name="password" placeholder="Password" required />
+        <button type="submit">Log In</button>
+        <div id="loginError" class="error-message" style="display:none;"></div>
+      </form>
+    </div>
+  </div>
+  <div id="authAlert" class="alert-popup" style="display:none;">
+    <div class="alert-content">
+      <span class="close-btn" style="position: absolute; top: 10px; right: 15px; font-size: 24px; cursor: pointer; color: gold;">&times;</span>
+      <h2>You must be logged in to view your order summary.</h2>
+      <button id="loginRedirectBtn" class="btn" style="margin-top: 15px; background: gold; border: none; padding: 10px 20px; cursor: pointer; font-weight: bold; border-radius: 4px;">Go to Login</button>
+    </div>
+  </div>
+   <div class="confirm-section">
+  <button id="confirmOrderBtn" class="modal-button" style="background: green; color: white; margin-top: 20px;">Confirm Order</button>
+  <p id="confirmationStatus" style="margin-top: 10px; color: lime; font-weight: bold; display: none;">Order confirmed successfully!</p>
+</div>
+
+  <main class="order-summary-container" id="order-summary-container">
+    <!-- Order summary will be rendered here by JS -->
+  </main>
+
+  <footer>
+    &copy; 2025 ARS Virtual Art Gallery<br>
+    All rights reserved<br>
+    Designed with passion for art
+  </footer>
+
+  <script src="auth.js"></script>
+  <script>
+    // Robust logout logic for all pages
+    async function logoutUser() {
+      await fetch('/logout', { method: 'POST', credentials: 'include' });
+      localStorage.removeItem('user');
+      if (typeof updateLoginUI === 'function') updateLoginUI();
+      window.location.href = '/paintings.html';
+    }
+    document.getElementById('logoutBtn').onclick = () => logoutUser();
+    // Cart count update function for this page
+    function updateCartCount() {
+      const cart = JSON.parse(localStorage.getItem('cart')) || [];
+      const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
+      const cartCountElem = document.getElementById('cart-count');
+      if (cartCountElem) cartCountElem.textContent = totalItems;
+    }
+    // Always update cart count on page load
+    updateCartCount();
+
+    // Fetch and render order summary
+    async function fetchAndRenderOrderSummary() {
+      const urlParams = new URLSearchParams(window.location.search);
+      const orderId = urlParams.get('orderId');
+      if (!orderId) {
+        document.getElementById('order-summary-container').innerHTML = `
+          <div class="modal" style="display:flex; align-items:center; justify-content:center;">
+            <div class="modal-content">
+              <h2 style="color:#ff3c3c;">An error occurred</h2>
+              <p>Order not found. Please check your order link or try again later.</p>
+              <a href="/" class="back-home-btn">Back to Home</a>
+            </div>
+          </div>
+        `;
+        return;
+      }
+      const res = await fetch(`/order-summary/${orderId}`, { credentials: 'include' });
+      if (!res.ok) {
+        document.getElementById('order-summary-container').innerHTML = `
+          <div class="modal" style="display:flex; align-items:center; justify-content:center;">
+            <div class="modal-content">
+              <h2 style="color:#ff3c3c;">An error occurred</h2>
+              <p>We could not load your order summary. Please check your order link or try again later.</p>
+              <a href="/" class="back-home-btn">Back to Home</a>
+            </div>
+          </div>
+        `;
+        return;
+      }
+      const order = await res.json();
+      let itemsHtml = '';
+      let total = 0;
+      order.items.forEach(item => {
+        const itemTotal = item.price * item.quantity;
+        total += itemTotal;
+        itemsHtml += `<li><strong>${item.title}</strong> - Quantity: ${item.quantity} - Total: $${itemTotal.toFixed(2)}</li>`;
+      });
+      document.getElementById('order-summary-container').innerHTML = `
+        <h2>Thank you for your order, ${order.shippingInfo?.name || ''}!</h2>
+        <p>Your order has been successfully placed. Here are your order details:</p>
+        <div class="order-items">
+          <h3>Order Items:</h3>
+          <ul>${itemsHtml}</ul>
+        </div>
+        <div class="order-total">
+          <h3>Order Total: $${total.toFixed(2)}</h3>
+        </div>
+        <div class="shipping-info">
+          <h3>Shipping Information:</h3>
+          <p><strong>Name:</strong> ${order.shippingInfo?.name || ''}</p>
+          <p><strong>Email:</strong> ${order.shippingInfo?.email || ''}</p>
+          <p><strong>Address:</strong> ${order.shippingInfo?.address || ''}, ${order.shippingInfo?.city || ''}, ${order.shippingInfo?.postalCode || ''}</p>
+          <p><strong>Phone:</strong> ${order.shippingInfo?.number || ''}</p>
+        </div>
+        <a href="/" class="modal-button">Back to Home</a>
+      `;
+    }
+    fetchAndRenderOrderSummary();
+    document.addEventListener("DOMContentLoaded", () => {
+  const confirmBtn = document.getElementById("confirmOrderBtn");
+  const confirmationStatus = document.getElementById("confirmationStatus");
+
+  if (confirmBtn) {
+    confirmBtn.addEventListener("click", async () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const orderId = urlParams.get('orderId');
+      if (!orderId) return alert("Order ID missing.");
+
+      try {
+        const res = await fetch(`/confirm-order/${orderId}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include'
+        });
+
+        if (res.ok) {
+          confirmationStatus.style.display = 'block';
+          confirmBtn.disabled = true;
+          confirmBtn.innerText = 'Order Confirmed';
+        } else {
+          alert("Order confirmation failed. Please try again.");
+        }
+      } catch (err) {
+        console.error(err);
+        alert("An error occurred during order confirmation.");
+      }
+    });
+  }
+});
+
+  </script>
+</body>
+</html>

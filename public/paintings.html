@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Gallery - ARS Virtual Art</title>
+  <link href="https://fonts.googleapis.com/css2?family=Great+Vibes&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="painting.css" />
+  <script src="/auth.js"></script>
+</head>
+<body>
+  <header>
+    <div class="header-title">ARS Gallery</div>
+    <div class="header-actions">
+      <button onclick="showLoginModal()" id="loginBtn">Login</button>
+      <button onclick="showSignupModal()" id="signupBtn">Sign Up</button>
+      <button id="logoutBtn" style="display:none;">Logout</button>
+     <div id="profileLink" style="display:none; margin-left: 10px;">
+  <a href="/profile.html" style="font-weight: bold;">👤</a>
+</div>
+<div id="userDisplay" style="display: none; margin-left: 10px; color: gold; font-weight: bold;"></div>
+      <div class="cart-icon" onclick="window.location.href='/cart.html'">
+        🛒 <span id="cart-count">0</span>
+        <a id="adminPanelLink" href="/admin.html" style="display: none; margin-left: 15px; color: gold; font-weight: bold;">Admin Panel</a>
+      </div>
+    </div>
+  </header>
+
+  <hr class="header-divider"/>
+
+<!--Modals-->
+  <div id="signupModal" class="modal">
+    <div class="modal-content">
+      <span class="close" onclick="closeModal('signupModal')">&times;</span>
+      <h2>Sign Up</h2>
+      <form id="signupForm">
+        <input type="text" name="username" placeholder="Username" required />
+        <input type="email" name="email" placeholder="Email" required />
+        <input type="password" name="password" placeholder="Password" required />
+        <button type="submit">Sign Up</button>
+        <div id="signupError" class="error-message" style="display:none;"></div>
+        <div id="signupSuccess" class="success-message" style="display:none;"></div>
+      </form>
+    </div>
+  </div> 
+
+  <div id="loginModal" class="modal">
+    <div class="modal-content">
+      <span class="close" onclick="closeModal('loginModal')">&times;</span>
+      <h2>Login</h2>
+      <form id="loginForm">
+        <input type="text" name="username" placeholder="Username" required />
+        <input type="password" name="password" placeholder="Password" required />
+        <button type="submit">Log In</button>
+        <div id="loginError" class="error-message" style="display:none;"></div>
+      </form>
+    </div>
+  </div>
+
+  <div id="descModal" class="modal">
+    <div class="modal-content">
+      <span class="close" onclick="closeDescription()">&times;</span>
+      <h2 id="descTitle"></h2>
+      <p id="descContent"></p>
+    </div>
+  </div>
+
+  <div id="successMessage" class="success-message"></div>
+
+  <!-- Gallery -->
+  <div class="gallery-scroll-container" id="gallery-container">
+    <!-- Paintings rendered dynamically -->
+  </div>
+
+  <!-- Custom Alert Popup for Authentication -->
+  <div id="authAlert" class="alert-popup" style="display:none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; 
+       background: rgba(0,0,0,0.6); justify-content: center; align-items: center; z-index: 10000;">
+    <div class="alert-content" style="background: #222; color: gold; padding: 20px; border-radius: 8px; max-width: 400px; text-align: center; position: relative;">
+      <span class="close-btn" style="position: absolute; top: 10px; right: 15px; font-size: 24px; cursor: pointer; color: gold;">&times;</span>
+      <h2>You must be logged in to buy or add items to the cart.</h2>
+      <button id="loginRedirectBtn" class="btn" style="margin-top: 15px; background: gold; border: none; padding: 10px 20px; cursor: pointer; font-weight: bold; border-radius: 4px;">Go to Login</button>
+    </div>
+  </div>
+
+  <footer>
+    &copy; 2025 ARS Virtual Art Gallery<br>
+    All rights reserved<br>
+    Designed with passion for art
+  </footer>
+
+  <script>
+    function clearAuthForms() {
+      document.getElementById('loginForm')?.reset();
+      document.getElementById('signupForm')?.reset();
+      document.getElementById('loginModal')?.classList.remove('show');
+      document.getElementById('signupModal')?.classList.remove('show');
+      document.getElementById('loginModal').style.display = 'none';
+      document.getElementById('signupModal').style.display = 'none';
+    }
+
+    let paintings = [];  // Store paintings globally to access anywhere
+  
+    async function fetchPaintings() {
+      try {
+        const response = await fetch('/api/paintings', {
+          credentials: 'include'
+        });
+        paintings = await response.json();
+        const galleryContainer = document.getElementById("gallery-container");
+        galleryContainer.innerHTML = '';
+        paintings.forEach(p => {
+        const paintingCard = document.createElement('div');
+        paintingCard.classList.add('painting-card');
+        paintingCard.onclick = () => showDescription(p.title);
+        paintingCard.innerHTML = `
+        <img src="${p.image}" alt="${p.title}" />
+        <div class="painting-title">${p.title}</div>
+        <div class="painting-price">${p.price}</div>
+        <div class="painting-actions">
+        <button class="add-to-cart-btn">Add to Cart</button>
+        <button class="buy-now-btn">Buy Now</button>
+        </div>
+        `;
+        // Always attach event listeners after element creation
+        paintingCard.querySelector('.add-to-cart-btn').addEventListener('click', function(event) {
+          event.stopPropagation();
+          event.preventDefault();
+          handleAddToCart(p._id);
+        });
+        paintingCard.querySelector('.buy-now-btn').addEventListener('click', function(event) {
+          event.stopPropagation();
+          event.preventDefault();
+          handleBuyNow(p._id);
+        });
+        galleryContainer.appendChild(paintingCard);
+        });
+      } catch (error) {
+        console.error('Error fetching paintings:', error);
+      }
+    }
+  
+    function checkUserLoggedIn() {
+      const user = JSON.parse(localStorage.getItem('user'));
+      // Support both { _id: ... } and { user: { _id: ... } }
+      if (!user) return false;
+      if (user._id) return true;
+      if (user.user && user.user._id) return true;
+      return false;
+    }
+
+    function checkUserIsAdmin() {
+      const user = JSON.parse(localStorage.getItem('user'));
+      return user && user.role === 'admin';
+    }
+
+    function updateAdminPanelVisibility() {
+      const adminLink = document.getElementById('adminPanelLink');
+      if (checkUserIsAdmin()) {
+        adminLink.style.display = 'inline-block';
+      } else {
+        adminLink.style.display = 'none';
+      }
+    }
+
+    function updateCartCount() {
+      const cart = JSON.parse(localStorage.getItem('cart')) || [];
+      const totalCount = cart.reduce((sum, item) => sum + item.quantity, 0);
+      document.getElementById('cart-count').textContent = totalCount;
+    }
+
+    // --- Cart Sync Functions ---
+    async function fetchAndStoreCart() {
+      if (!checkUserLoggedIn()) return;
+      const res = await fetch('/cart', { credentials: 'include' });
+      if (res.ok) {
+        const data = await res.json();
+        const localCart = (data.cart || []).map(item => ({
+          _id: item.productId._id,
+          title: item.productId.title,
+          price: item.productId.price,
+          image: item.productId.image,
+          quantity: item.quantity
+        }));
+        localStorage.setItem('cart', JSON.stringify(localCart));
+        updateCartCount();
+      }
+    }
+
+    async function syncCartToBackend() {
+      if (!checkUserLoggedIn()) return;
+      const cart = JSON.parse(localStorage.getItem('cart')) || [];
+      const backendCart = cart.map(item => ({
+        productId: item._id,
+        quantity: item.quantity
+      }));
+      await fetch('/cart/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ cart: backendCart })
+      });
+    }
+
+    function showAuthAlert() {
+      const authAlert = document.getElementById('authAlert');
+      authAlert.style.display = 'flex';
+    }
+
+    document.querySelector('#authAlert .close-btn').onclick = function() {
+      const authAlert = document.getElementById('authAlert');
+      authAlert.style.display = 'none';
+    };
+
+    document.getElementById('loginRedirectBtn').onclick = function () {
+      document.getElementById('authAlert').style.display = 'none';
+      showLoginModal();
+    };
+
+    function handleAddToCart(id) {
+      console.log('handleAddToCart: logged in?', checkUserLoggedIn(), 'user:', localStorage.getItem('user'));
+      if (!checkUserLoggedIn()) {
+        showAuthAlert();
+        return;
+      }
+      const item = paintings.find(painting => painting._id === id);
+      if (item) {
+        let cart = JSON.parse(localStorage.getItem('cart')) || [];
+        const existingItemIndex = cart.findIndex(cartItem => cartItem._id === id);
+        if (existingItemIndex !== -1) {
+          cart[existingItemIndex].quantity += 1;
+        } else {
+          const itemToAdd = {...item, quantity: 1};
+          cart.push(itemToAdd);
+        }
+        localStorage.setItem('cart', JSON.stringify(cart));
+        updateCartCount();
+        if (checkUserLoggedIn()) syncCartToBackend();
+      }
+    }
+
+    // Also update cart count after fetching paintings (in case cart is updated)
+    async function fetchPaintings() {
+      try {
+        const response = await fetch('/api/paintings', {
+          credentials: 'include'
+        });
+        paintings = await response.json();
+        const galleryContainer = document.getElementById("gallery-container");
+        galleryContainer.innerHTML = '';
+        paintings.forEach(p => {
+        const paintingCard = document.createElement('div');
+        paintingCard.classList.add('painting-card');
+        paintingCard.onclick = () => showDescription(p.title);
+        paintingCard.innerHTML = `
+        <img src="${p.image}" alt="${p.title}" />
+        <div class="painting-title">${p.title}</div>
+        <div class="painting-price">${p.price}</div>
+        <div class="painting-actions">
+        <button class="add-to-cart-btn">Add to Cart</button>
+        <button class="buy-now-btn">Buy Now</button>
+        </div>
+        `;
+        paintingCard.querySelector('.add-to-cart-btn').addEventListener('click', function(event) {
+          event.stopPropagation();
+          event.preventDefault();
+          handleAddToCart(p._id);
+        });
+        paintingCard.querySelector('.buy-now-btn').addEventListener('click', function(event) {
+          event.stopPropagation();
+          event.preventDefault();
+          handleBuyNow(p._id);
+        });
+        galleryContainer.appendChild(paintingCard);
+        });
+        updateCartCount(); // Ensure cart count is updated after rendering
+      } catch (error) {
+        console.error('Error fetching paintings:', error);
+      }
+    }
+
+    function handleBuyNow(id) {
+      console.log('handleBuyNow: logged in?', checkUserLoggedIn(), 'user:', localStorage.getItem('user'));
+      if (!checkUserLoggedIn()) {
+        showAuthAlert();
+        return;
+      }
+      const item = paintings.find(p => p._id === id);
+      if (item) {
+        let cart = JSON.parse(localStorage.getItem('cart')) || [];
+        const exists = cart.some(cartItem => cartItem._id === id);
+        if (!exists) {
+          cart.push({...item, quantity: 1});
+          localStorage.setItem('cart', JSON.stringify(cart));
+          if (checkUserLoggedIn()) syncCartToBackend();
+        }
+      }
+      window.location.href = `/checkout.html?paintingId=${id}`;
+    }
+
+    function showDescription(title) {
+      const painting = paintings.find(p => p.title === title);
+      if (painting) {
+        document.getElementById("descTitle").innerText = painting.title;
+        document.getElementById("descContent").innerText = painting.description;
+        document.getElementById("descModal").style.display = "flex";
+      }
+    }
+
+    function closeDescription() {
+      document.getElementById("descModal").style.display = "none";
+    }
+
+    function showLoginModal() {
+      document.getElementById("loginModal").style.display = "flex";
+    }
+
+    function showSignupModal() {
+      document.getElementById("signupModal").style.display = "flex";
+    }
+
+    function closeModal(modalId) {
+      document.getElementById(modalId).style.display = "none";
+    }
+
+    function hidePopups() {
+      const loginModal = document.getElementById("loginModal");
+      const signupModal = document.getElementById("signupModal");
+      const descModal = document.getElementById("descModal");
+      if (loginModal) loginModal.style.display = 'none';
+      if (signupModal) signupModal.style.display = 'none';
+      if (descModal) descModal.style.display = 'none';
+    }
+
+   async function setupLoginForm() {
+  const loginForm = document.getElementById('loginForm');
+  const loginError = document.getElementById('loginError');
+
+  loginForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    loginError.style.display = 'none';
+
+    const formData = new FormData(loginForm);
+    const data = {
+      username: formData.get('username'),
+      password: formData.get('password'),
+    };
+
+    try {
+      const res = await fetch('/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+        credentials: 'include'
+      });
+
+      if (res.ok) {
+        // Fetch complete user info after login
+        const meRes = await fetch('/me', {
+          method: 'GET',
+          credentials: 'include'
+        });
+
+        if (meRes.ok) {
+          const meData = await meRes.json();
+          localStorage.setItem('user', JSON.stringify(meData.user)); // store only user object
+          
+          document.getElementById('loginBtn').style.display = 'none';
+          document.getElementById('signupBtn').style.display = 'none';
+          document.getElementById('logoutBtn').style.display = 'inline-block';
+          document.getElementById('profileLink').style.display = 'inline-block';
+          updateAdminPanelVisibility();
+
+          // UI is updated, re-initialize UI and re-render gallery
+          if (typeof initAuthUI === 'function') initAuthUI();
+          fetchPaintings();
+        }
+
+        closeModal('loginModal');
+        clearAuthForms();
+
+      } else {
+        const errorText = await res.text();
+        loginError.textContent = errorText || 'Login failed';
+        loginError.style.display = 'block';
+      }
+
+    } catch (error) {
+      loginError.textContent = 'Network error';
+      loginError.style.display = 'block';
+    }
+  });
+}
+async function setupSignupForm() {
+  const signupForm = document.getElementById('signupForm');
+  const signupError = document.getElementById('signupError');
+  const signupSuccess = document.getElementById('signupSuccess');
+
+  signupForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    signupError.style.display = 'none';
+    signupSuccess.style.display = 'none';
+
+    const formData = new FormData(signupForm);
+    const data = {
+      username: formData.get('username'),
+      email: formData.get('email'),
+      password: formData.get('password'),
+    };
+
+    try {
+      const res = await fetch('/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+        credentials: 'include'
+      });
+
+      if (res.ok) {
+        // Auto-login after successful signup
+        const loginRes = await fetch('/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: data.username, password: data.password }),
+          credentials: 'include'
+        });
+
+        if (loginRes.ok) {
+          const meRes = await fetch('/me', {
+            method: 'GET',
+            credentials: 'include'
+          });
+
+          if (meRes.ok) {
+            const meData = await meRes.json();
+            localStorage.setItem('user', JSON.stringify(meData.user));
+
+            document.getElementById('loginBtn').style.display = 'none';
+            document.getElementById('signupBtn').style.display = 'none';
+            document.getElementById('logoutBtn').style.display = 'inline-block';
+            document.getElementById('profileLink').style.display = 'inline-block';
+            updateAdminPanelVisibility();
+            // UI is updated, re-initialize UI and re-render gallery
+            if (typeof initAuthUI === 'function') initAuthUI();
+            fetchPaintings();
+          }
+
+          signupSuccess.textContent = 'Signup successful and logged in!';
+          signupSuccess.style.display = 'block';
+          signupForm.reset();
+          closeModal('signupModal');
+          clearAuthForms();
+        }
+
+      } else {
+        const errorText = await res.text();
+        signupError.textContent = errorText || 'Registration failed';
+        signupError.style.display = 'block';
+      }
+
+    } catch (error) {
+      signupError.textContent = 'Network error';
+      signupError.style.display = 'block';
+    }
+  });
+}
+
+   // Robust logout logic for all pages
+   async function logoutUser() {
+     await fetch('/logout', { method: 'POST', credentials: 'include' });
+     localStorage.removeItem('user');
+     if (typeof updateLoginUI === 'function') updateLoginUI();
+     window.location.href = '/paintings.html';
+   }
+   document.getElementById('logoutBtn').onclick = () => logoutUser();
+
+    window.onload = () => {
+      fetchPaintings();
+      updateCartCount();
+      hidePopups();
+      setupLoginForm();
+      setupSignupForm();
+      updateAdminPanelVisibility();
+
+      fetch('/me', {
+        method: 'GET',
+        credentials: 'include' // IMPORTANT: send cookies
+      })
+      .then(async res => {
+        if (res.ok) {
+          const meData = await res.json();
+          if (meData && meData.user) {
+            localStorage.setItem('user', JSON.stringify(meData.user));
+          } else {
+            localStorage.removeItem('user');
+          }
+          if (typeof updateLoginUI === 'function') updateLoginUI();
+          updateAdminPanelVisibility();
+        } else {
+          // Session invalid
+          localStorage.removeItem('user');
+          if (typeof updateLoginUI === 'function') updateLoginUI();
+          updateAdminPanelVisibility();
+        }
+      });
+
+      const user = JSON.parse(localStorage.getItem('user'));
+      if (user && user._id) {
+        document.getElementById('loginBtn').style.display = 'none';
+        document.getElementById('signupBtn').style.display = 'none';
+        document.getElementById('logoutBtn').style.display = 'inline-block';
+        document.getElementById('profileLink').style.display = 'inline-block';
+      } else {
+        document.getElementById('loginBtn').style.display = 'inline-block';
+        document.getElementById('signupBtn').style.display = 'inline-block';
+        document.getElementById('logoutBtn').style.display = 'none';
+        document.getElementById('userDisplay').style.display = 'none';
+        document.getElementById('adminPanelLink').style.display = 'none';
+      }
+    };
+    function refreshPaintingActions() {
+  // Re-check user status and update the painting button behavior
+  const loggedIn = checkUserLoggedIn();
+
+  document.querySelectorAll('.painting-card').forEach(card => {
+    const id = card.querySelector('button')?.onclick?.toString()?.match(/handleAddToCart\('([^']+)'\)/)?.[1];
+
+    if (id) {
+      // Replace Add to Cart button
+      const addBtn = card.querySelector('button:nth-child(1)');
+      addBtn.onclick = (event) => {
+        event.stopPropagation();
+        event.preventDefault();
+        handleAddToCart(id);
+      };
+
+      // Replace Buy Now button
+      const buyBtn = card.querySelector('button:nth-child(2)');
+      buyBtn.onclick = (event) => {
+        event.stopPropagation();
+        event.preventDefault();
+        handleBuyNow(id);
+      };
+    }
+  });
+}
+
+  </script>
+
+</body>
+</html>

@@ -1,0 +1,140 @@
+/* Body */
+body {
+  font-family: 'Great Vibes', cursive;
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: url('/images/musm1.jpg') no-repeat center center fixed;
+  background-size: cover;
+  color: #fff;
+  opacity: 1;
+  transition: opacity 2s ease; /* fallback in case JS is late */
+}
+
+/* Canvas Styling */
+#transitionCanvas {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 9999;
+  width: 100vw;
+  height: 100vh;
+  background-color: black;
+  pointer-events: auto;
+}
+
+/* Footer Background Section */
+.footer-background-section {
+  background: url('/images/musm1.jpg') no-repeat center center;
+  background-size: cover;
+  width: 100vw;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  animation: backgroundPan 60s ease-in-out infinite, fadeIn 2s ease-out;
+}
+
+/* Background Movement */
+@keyframes backgroundPan {
+  0% { background-position: 0% center; }
+  25% { background-position: 50% center; }
+  50% { background-position: 100% center; }
+  75% { background-position: 150% center; }
+  100% { background-position: 0% center; }
+}
+
+/* Fade-In */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Calligraphic Text */
+.calligraphic {
+  font-size: 5rem;
+  color: #fff;
+  text-shadow: 6px 6px 20px rgba(0, 0, 0, 0.9), 0 0 25px rgba(255, 255, 255, 0.4);
+  transition: transform 0.3s ease, color 0.3s ease;
+}
+
+.calligraphic:hover {
+  transform: scale(1.1) rotate(5deg);
+  color: #ffb6c1;
+  text-shadow: 8px 8px 30px rgba(0, 0, 0, 1), 0 0 40px rgba(255, 255, 255, 0.5);
+}
+
+/* Tagline */
+.calligraphic-tagline {
+  font-size: 2rem;
+  color: #e0e0e0;
+  margin-top: -20px;
+  text-shadow: 4px 4px 15px rgba(0, 0, 0, 0.7), 0 0 20px rgba(255, 255, 255, 0.5);
+}
+
+.calligraphic-tagline:hover {
+  color: #ffb6c1;
+  text-shadow: 0 0 25px rgba(255, 255, 255, 0.8), 0 0 45px rgba(255, 255, 255, 0.6);
+}
+
+/* Welcome Message */
+.welcome-message {
+  font-size: 2.5rem;
+  color: #ccc;
+  text-shadow: 2px 2px 20px #fff;
+  margin-top: 10px;
+  transition: color 0.3s ease, transform 0.3s ease, text-shadow 0.3s ease;
+}
+
+.welcome-message:hover {
+  color: #f5f5f5;
+  transform: scale(1.05);
+  text-shadow: 0 0 40px #ffb6c1, 0 0 60px #ffb6c1;
+}
+
+/* Footer Styling */
+footer {
+  background: linear-gradient(to top, #1a1a1a, rgba(26, 26, 26, 0.8), transparent);
+  color: #ccc;
+  text-align: center;
+  padding: 10px;
+  font-size: 1rem;
+  border-radius: 15px 15px 0 0;
+  text-shadow: 3px 3px 12px rgba(0, 0, 0, 0.8), 0 0 20px rgba(255, 255, 255, 0.3);
+  box-shadow: 0 -5px 20px rgba(0, 0, 0, 0.6);
+  border-top: 1px solid #333;
+  transition: background-color 0.3s ease, transform 0.3s ease;
+}
+
+footer:hover {
+  background-color: rgba(0, 0, 0, 0.9);
+  color: #ffb6c1;
+  transform: translateY(-3px);
+  text-shadow: 0 0 20px rgba(255, 255, 255, 0.6);
+}
+
+/* Disable caret blinking */
+body, html {
+  user-select: none;
+  caret-color: transparent;
+}
+
+/* Fullscreen fade canvas */
+#transitionCanvas {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 9999;
+  width: 100vw;
+  height: 100vh;
+  background-color: transparent;
+  pointer-events: auto; /* Allows canvas to detect click */
+}
+
+
