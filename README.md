@@ -126,4 +126,3 @@ Add screenshots here:
 **Ashith Reddy**
 
 - GitHub: https://github.com/ashithreddyp
-- LinkedIn: https://www.linkedin.com/in/ashith-reddy/
